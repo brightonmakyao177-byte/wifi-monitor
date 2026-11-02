@@ -29,7 +29,7 @@ Name: "{group}\Stop Wi-Fi Monitor"; Filename: "{app}\WiFiMonitor.exe"; Parameter
 Name: "{userstartup}\Wi-Fi Monitor"; Filename: "{app}\WiFiMonitor.exe"; Parameters: "--background"; Tasks: autostart
 
 [Run]
-Filename: "{app}\WiFiMonitor.exe"; Description: "Open Wi-Fi Monitor now"; Flags: nowait postinstall
+Filename: "{app}\WiFiMonitor.exe"; Description: "Open Wi-Fi Monitor now"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{app}\WiFiMonitor.exe"; Parameters: "--stop"; Flags: runhidden; RunOnceId: "StopMonitor"
