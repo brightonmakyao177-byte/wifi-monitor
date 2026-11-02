@@ -1,0 +1,8 @@
+__pycache__/
+.build-venv/
+build/
+dist/
+*.spec
+*.db
+*.db-shm
+*.db-wal

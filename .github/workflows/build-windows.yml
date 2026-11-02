@@ -1,0 +1,37 @@
+# Builds the Windows installer on a real Windows machine and checks that it runs.
+name: Build Windows installer
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build
+        shell: cmd
+        run: build_windows.bat
+      - name: Install and run it
+        shell: pwsh
+        run: |
+          Start-Process dist\WiFiMonitor-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\WiFiMonitor\WiFiMonitor.exe"
+          if (!(Test-Path $exe)) { throw "The installer didn't put the app in place" }
+          Start-Process $exe -ArgumentList '--background'
+          Start-Sleep -Seconds 45
+          Invoke-WebRequest http://127.0.0.1:8765/ -UseBasicParsing | Out-Null
+          $state = Invoke-RestMethod 'http://127.0.0.1:8765/api/state?hours=1'
+          $state.status | ConvertTo-Json
+          if ($state.status.state -eq 'error') { throw $state.status.message }
+          Get-Content "$env:LOCALAPPDATA\WiFiMonitor\monitor.log"
+          Start-Process $exe -ArgumentList '--stop' -Wait
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WiFiMonitor-Setup
+          path: dist/WiFiMonitor-Setup.exe

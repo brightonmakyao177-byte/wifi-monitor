@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi Devices</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #706e69;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, .10);
+  --series: #2a78d6;
+  --gap: #f0efec;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --wash: rgba(11, 11, 11, .05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #989690;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, .10);
+    --series: #3987e5;
+    --gap: #262625;
+    --wash: rgba(255, 255, 255, .07);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
+h1 { font-size: 22px; font-weight: 600; margin: 0; }
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+.sub { color: var(--ink-2); margin: 0 0 12px; font-size: 13px; }
+#live { color: var(--ink-2); font-size: 13px; }
+
+.filters { display: flex; gap: 4px; margin: 16px 0; }
+.filters button {
+  font: inherit; color: var(--ink-2); background: transparent; cursor: pointer;
+  border: 1px solid transparent; border-radius: 8px; padding: 5px 12px;
+}
+.filters button:hover { background: var(--wash); }
+.filters button[aria-pressed="true"] { color: var(--ink); background: var(--surface); border-color: var(--border); font-weight: 600; }
+
+#banner {
+  display: none; align-items: center; gap: 8px; margin: 0 0 16px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 8px;
+}
+#banner.show { display: flex; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.tile { padding: 14px 16px; min-width: 0; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .value { font-size: 32px; font-weight: 600; line-height: 1.2; }
+.tile .note { color: var(--muted); font-size: 12px; min-height: 17px; }
+.card { padding: 16px; margin-bottom: 12px; }
+#content { transition: opacity .15s; }
+#content.loading { opacity: .6; }
+
+svg { display: block; width: 100%; touch-action: pan-y; }
+svg:focus-visible { outline: 2px solid var(--series); outline-offset: 2px; border-radius: 4px; }
+svg text { font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--muted); font-variant-numeric: tabular-nums; }
+svg text.name { fill: var(--ink); font-variant-numeric: normal; }
+svg text.name.away { fill: var(--ink-2); }
+.key { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ink-2); font-size: 12px; margin-top: 8px; }
+.key span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 10px; border-radius: 2px; background: var(--series); }
+.swatch.gap { background: var(--gap); box-shadow: inset 0 0 0 1px var(--grid); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--ink-2); padding: 6px 10px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-2); }
+td input {
+  font: inherit; color: var(--ink); background: transparent; width: 190px; padding: 3px 6px; margin-left: -6px;
+  border: 1px solid transparent; border-radius: 6px; text-overflow: ellipsis;
+}
+td input::placeholder { color: var(--ink); opacity: 1; }
+td input:hover { border-color: var(--border); }
+td input:focus { border-color: var(--series); outline: none; background: var(--page); }
+.detail { color: var(--muted); font-size: 12px; }
+.state { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--axis); }
+.dot.on { background: var(--good); }
+.tag { color: var(--ink-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; font-size: 11px; margin-left: 6px; }
+details { margin-top: 10px; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
+details .table-wrap { max-height: 280px; overflow-y: auto; margin-top: 8px; }
+.empty { color: var(--ink-2); padding: 18px 0; }
+footer { color: var(--muted); font-size: 12px; margin-top: 16px; max-width: 760px; }
+
+#tip {
+  position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 260px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, .16);
+}
+#tip strong { display: block; font-size: 14px; }
+#tip .when { color: var(--ink-2); }
+#tip ul { margin: 6px 0 0; padding: 0; list-style: none; }
+#tip li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+#tip li.hit { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 720px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .tile .value { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Wi-Fi devices</h1>
+    <div id="live" role="status"></div>
+  </header>
+  <div class="filters" role="group" aria-label="Time range">
+    <button data-hours="6">6 hours</button>
+    <button data-hours="24">24 hours</button>
+    <button data-hours="168">7 days</button>
+    <button data-hours="720">30 days</button>
+  </div>
+  <div id="banner" role="alert"><span aria-hidden="true">⚠</span><span id="banner-text"></span></div>
+  <div id="content">
+    <section class="tiles" aria-label="Summary">
+      <div class="tile"><div class="label">Online now</div><div class="value" id="t-online">–</div><div class="note" id="n-online"></div></div>
+      <div class="tile"><div class="label">Most at once</div><div class="value" id="t-peak">–</div><div class="note" id="n-peak"></div></div>
+      <div class="tile"><div class="label">Different devices</div><div class="value" id="t-active">–</div><div class="note" id="n-active"></div></div>
+      <div class="tile"><div class="label">First-time devices</div><div class="value" id="t-new">–</div><div class="note" id="n-new"></div></div>
+    </section>
+    <section class="card">
+      <h2>Devices online</h2>
+      <p class="sub">How many devices were connected at each moment.</p>
+      <div id="count-chart"></div>
+      <details>
+        <summary>View as a table</summary>
+        <div class="table-wrap"><table id="count-table"></table></div>
+      </details>
+    </section>
+    <section class="card">
+      <h2>Timeline</h2>
+      <p class="sub">When each device was connected.</p>
+      <div id="timeline"></div>
+      <div class="key">
+        <span><i class="swatch"></i>Connected</span>
+        <span><i class="swatch gap"></i>Monitor wasn't running, so no data</span>
+      </div>
+    </section>
+    <section class="card">
+      <h2>All devices</h2>
+      <p class="sub">Click a name to rename a device.</p>
+      <div class="table-wrap"><table id="devices"></table></div>
+    </section>
+  </div>
+  <footer id="method"></footer>
+</main>
+<div id="tip"></div>
+<script>
+const SVG_NS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+let hours = 24;
+let state = null;
+let cursorTime = null;
+let crosshairs = [];
+let seq = 0;
+
+try { hours = Number(localStorage.getItem("hours")) || 24; } catch (e) {}
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "text") node.textContent = value;
+    else node.setAttribute(key, value);
+  }
+  node.append(...children);
+  return node;
+}
+
+function svgEl(tag, attrs = {}, text) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function deviceName(d) {
+  if (d.custom_name || d.hostname) return d.custom_name || d.hostname;
+  if (d.is_self) return "This computer";
+  // Several devices can share a generic name, so add the end of the MAC address.
+  const generic = d.vendor ? d.vendor.split(/[ ,]/)[0] : d.private ? "Private" : "Unknown";
+  return generic + " ··" + d.mac.slice(-2);
+}
+
+function fmtTime(ts) {
+  return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtDateTime(ts) {
+  const date = new Date(ts * 1000);
+  const today = new Date().toDateString() === date.toDateString();
+  return today ? fmtTime(ts) : date.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + ", " + fmtTime(ts);
+}
+
+function fmtDuration(seconds) {
+  if (seconds < 60) return "under 1 min";
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return mins + " min";
+  const h = Math.floor(mins / 60);
+  if (h < 48) return h + " h " + (mins % 60) + " min";
+  return Math.floor(h / 24) + " d " + (h % 24) + " h";
+}
+
+function plural(n, word) {
+  return n + " " + word + (n === 1 ? "" : "s");
+}
+
+function geometry(container) {
+  const width = Math.max(container.clientWidth, 280);
+  return { width, left: width < 560 ? 104 : 190, right: 8 };
+}
+
+function xScale(geo) {
+  const span = state.now - state.since;
+  return (ts) => geo.left + ((ts - state.since) / span) * (geo.width - geo.left - geo.right);
+}
+
+function timeTicks(geo) {
+  const steps = [1, 2, 3, 6, 12, 24, 48, 96, 168].map((h) => h * 3600);
+  const span = state.now - state.since;
+  const room = (geo.width - geo.left - geo.right) / 76;
+  const step = steps.find((s) => span / s <= room) || steps[steps.length - 1];
+  const start = new Date(state.since * 1000);
+  start.setMinutes(0, 0, 0);
+  if (step >= 86400) {
+    start.setHours(0);
+    // Count multi-day steps from the first midnight in range, so a tick isn't lost off the left edge.
+    if (start.getTime() / 1000 < state.since) start.setDate(start.getDate() + 1);
+  }
+  const ticks = [];
+  for (const d = new Date(start); d.getTime() / 1000 <= state.now;) {
+    const ts = d.getTime() / 1000;
+    if (ts >= state.since && (step >= 86400 || d.getHours() % (step / 3600) === 0)) ticks.push(ts);
+    if (step >= 86400) d.setDate(d.getDate() + step / 86400);
+    else d.setHours(d.getHours() + 1);
+  }
+  return { ticks, daily: step >= 86400 };
+}
+
+function tickLabel(ts, daily) {
+  const date = new Date(ts * 1000);
+  if (daily) return date.toLocaleDateString([], { day: "numeric", month: "short" });
+  if (date.getHours() === 0) return date.toLocaleDateString([], { weekday: "short", day: "numeric" });
+  return fmtTime(ts);
+}
+
+function drawGaps(svg, x, top, bottom) {
+  for (const [start, end] of state.gaps) {
+    svg.append(svgEl("rect", { x: x(start), y: top, width: Math.max(x(end) - x(start), 1), height: bottom - top, fill: "var(--gap)" }));
+  }
+}
+
+function drawTimeAxis(svg, geo, x, top, bottom, labelled) {
+  const { ticks, daily } = timeTicks(geo);
+  for (const ts of ticks) {
+    svg.append(svgEl("line", { x1: x(ts), x2: x(ts), y1: top, y2: bottom, stroke: "var(--grid)" }));
+    if (labelled) {
+      const nearEdge = x(ts) > geo.width - 34;
+      svg.append(svgEl("text", { x: x(ts), y: bottom + 16, "text-anchor": nearEdge ? "end" : "middle" }, tickLabel(ts, daily)));
+    }
+  }
+}
+
+function addCrosshair(svg, top, bottom) {
+  const line = svgEl("line", { y1: top, y2: bottom, stroke: "var(--ink-2)", visibility: "hidden" });
+  svg.append(line);
+  crosshairs.push(line);
+}
+
+function renderCount() {
+  const box = $("count-chart");
+  const geo = geometry(box);
+  const x = xScale(geo);
+  const top = 8, bottom = 176, height = bottom + 24;
+  const svg = svgEl("svg", { viewBox: `0 0 ${geo.width} ${height}`, height, tabindex: 0, role: "img",
+    "aria-label": "Number of devices online over time. Use the arrow keys to read values." });
+
+  const max = Math.max(state.peak ? state.peak.online : 0, 1);
+  const step = [1, 2, 5, 10, 20, 50, 100].find((s) => max / s <= 5) || 200;
+  const yMax = Math.ceil(max / step) * step;
+  const y = (n) => bottom - (n / yMax) * (bottom - top);
+
+  drawGaps(svg, x, top, bottom);
+  for (let n = 0; n <= yMax; n += step) {
+    svg.append(svgEl("line", { x1: geo.left, x2: geo.width - geo.right, y1: y(n), y2: y(n), stroke: n === 0 ? "var(--axis)" : "var(--grid)" }));
+    svg.append(svgEl("text", { x: geo.left - 8, y: y(n) + 4, "text-anchor": "end" }, n));
+  }
+  drawTimeAxis(svg, geo, x, bottom, bottom, true);
+
+  // One run of the stepped line per stretch of monitoring, so gaps stay empty.
+  const runs = [];
+  let run = [];
+  state.counts.forEach(([ts, n], i) => {
+    const prev = state.counts[i - 1];
+    if (prev && state.gaps.some(([start, end]) => prev[0] <= start && ts >= end)) {
+      runs.push(run);
+      run = [];
+    }
+    run.push([ts, n]);
+  });
+  if (run.length) runs.push(run);
+
+  for (const points of runs) {
+    let d = "";
+    points.forEach(([ts, n], i) => {
+      d += i === 0 ? `M${x(ts)} ${y(n)}` : `H${x(ts)}V${y(n)}`;
+    });
+    const last = points[points.length - 1];
+    const firstX = x(points[0][0]);
+    const lastX = Math.max(x(last[0]), firstX + 1);
+    d += `H${lastX}`;
+    svg.append(svgEl("path", { d: `${d}V${bottom}H${firstX}Z`, fill: "var(--series)", opacity: .1 }));
+    svg.append(svgEl("path", { d, fill: "none", stroke: "var(--series)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  }
+
+  addCrosshair(svg, top, bottom);
+  wireHover(svg, geo);
+  box.replaceChildren(svg);
+
+  const table = $("count-table");
+  const changes = [];
+  state.counts.forEach(([ts, n], i) => {
+    if (i === 0 || state.counts[i - 1][1] !== n) changes.push([ts, n]);
+  });
+  const body = el("tbody");
+  for (const [ts, n] of changes.slice(-200).reverse()) {
+    body.append(el("tr", {}, el("td", { text: fmtDateTime(ts) }), el("td", { class: "num", text: n })));
+  }
+  table.replaceChildren(
+    el("thead", {}, el("tr", {}, el("th", { text: "Count changed at" }), el("th", { class: "num", text: "Devices online" }))),
+    body);
+}
+
+function renderTimeline() {
+  const box = $("timeline");
+  const devices = state.devices.filter((d) => d.sessions.length);
+  if (!devices.length) {
+    box.replaceChildren(el("p", { class: "empty", text: "No devices seen in this period yet." }));
+    return;
+  }
+  const geo = geometry(box);
+  const x = xScale(geo);
+  const rowHeight = 26, barHeight = 14;
+  const bottom = devices.length * rowHeight;
+  const height = bottom + 24;
+  const svg = svgEl("svg", { viewBox: `0 0 ${geo.width} ${height}`, height, tabindex: 0, role: "img",
+    "aria-label": "When each device was connected. The All devices table has the same information." });
+
+  drawGaps(svg, x, 0, bottom);
+  drawTimeAxis(svg, geo, x, 0, bottom, true);
+  svg.append(svgEl("line", { x1: geo.left, x2: geo.width - geo.right, y1: bottom, y2: bottom, stroke: "var(--axis)" }));
+
+  const maxChars = Math.floor((geo.left - 12) / 6.6);
+  devices.forEach((device, i) => {
+    const rowTop = i * rowHeight;
+    const name = deviceName(device);
+    const label = name.length > maxChars ? name.slice(0, maxChars - 1) + "…" : name;
+    svg.append(svgEl("text", { class: "name" + (device.online ? "" : " away"), x: 0, y: rowTop + 17 }, label));
+    for (const [start, end] of device.sessions) {
+      svg.append(svgEl("rect", { x: x(start), y: rowTop + (rowHeight - barHeight) / 2, rx: 3,
+        width: Math.max(x(end) - x(start), 3), height: barHeight, fill: "var(--series)" }));
+    }
+  });
+
+  addCrosshair(svg, 0, bottom);
+  wireHover(svg, geo, (offsetY) => devices[Math.floor(offsetY / rowHeight)]);
+  box.replaceChildren(svg);
+}
+
+function renderTiles() {
+  $("t-online").textContent = state.online === null ? "–" : state.online;
+  $("n-online").textContent = state.last_scan ? "Checked " + fmtDateTime(state.last_scan) : "";
+  $("t-peak").textContent = state.peak ? state.peak.online : "–";
+  $("n-peak").textContent = state.peak ? fmtDateTime(state.peak.ts) : "";
+  $("t-active").textContent = state.active;
+  $("n-active").textContent = "seen in this period";
+  $("t-new").textContent = state.new;
+  $("n-new").textContent = "never seen before this period";
+}
+
+function renderDevices() {
+  // Polling must not wipe a name someone is typing.
+  if (document.activeElement && document.activeElement.closest("#devices")) return;
+  const head = el("tr", {});
+  for (const [text, cls] of [["Device"], ["Status"], ["Online in period", "num"], ["Last seen"], ["First seen"], ["IP address"], ["MAC address"], ["Maker"]]) {
+    head.append(el("th", { text, ...(cls ? { class: cls } : {}) }));
+  }
+  const body = el("tbody");
+  for (const d of state.devices) {
+    const input = el("input", { "aria-label": "Name for " + d.mac, placeholder: deviceName(d) });
+    input.value = d.custom_name || "";
+    input.addEventListener("change", () => rename(d.mac, input.value));
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+    const nameCell = el("td", {}, input);
+    if (d.first_seen >= state.since) nameCell.append(el("span", { class: "tag", text: "New" }));
+    if (d.is_self) nameCell.append(el("span", { class: "tag", text: "This computer" }));
+    const stateCell = el("td", {}, el("span", { class: "state" },
+      el("i", { class: "dot" + (d.online ? " on" : "") }), d.online ? "Online" : "Away"));
+    const maker = d.vendor || (d.private ? "Hidden (private address)" : "Unknown");
+    body.append(el("tr", {},
+      nameCell,
+      stateCell,
+      el("td", { class: "num", text: d.sessions.length ? fmtDuration(d.seconds) : "–" }),
+      el("td", { text: d.online ? "Now" : fmtDateTime(d.last_seen) }),
+      el("td", { text: fmtDateTime(d.first_seen) }),
+      el("td", { class: "mono", text: d.ip || "" }),
+      el("td", { class: "mono", text: d.mac }),
+      el("td", { text: maker })));
+  }
+  $("devices").replaceChildren(el("thead", {}, head), body);
+}
+
+async function rename(mac, name) {
+  await fetch("/api/devices/" + mac, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  load();
+}
+
+function wireHover(svg, geo, rowAt) {
+  const timeAt = (clientX) => {
+    const rect = svg.getBoundingClientRect();
+    const ratio = (clientX - rect.left - geo.left) / (rect.width - geo.left - geo.right);
+    return state.since + Math.min(Math.max(ratio, 0), 1) * (state.now - state.since);
+  };
+  svg.addEventListener("pointermove", (e) => {
+    const rect = svg.getBoundingClientRect();
+    if (e.clientX - rect.left < geo.left) return hideTip();
+    showAt(timeAt(e.clientX), e.clientX, e.clientY, rowAt ? rowAt(e.clientY - rect.top) : null);
+  });
+  svg.addEventListener("pointerleave", hideTip);
+  svg.addEventListener("blur", hideTip);
+  svg.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const span = state.now - state.since;
+    const move = (e.key === "ArrowLeft" ? -1 : 1) * span / 48;
+    cursorTime = Math.min(Math.max((cursorTime ?? state.now) + move, state.since), state.now);
+    const rect = svg.getBoundingClientRect();
+    const px = rect.left + geo.left + ((cursorTime - state.since) / span) * (rect.width - geo.left - geo.right);
+    showAt(cursorTime, px, rect.top + 20, null);
+  });
+}
+
+function onlineAt(ts) {
+  return state.devices.filter((d) => d.sessions.some(([start, end]) => start <= ts && ts <= end));
+}
+
+function showAt(ts, clientX, clientY, row) {
+  cursorTime = ts;
+  for (const line of crosshairs) {
+    const svg = line.ownerSVGElement;
+    const geo = geometry(svg.parentElement);
+    const lineX = xScale(geo)(ts);
+    line.setAttribute("x1", lineX);
+    line.setAttribute("x2", lineX);
+    line.setAttribute("visibility", "visible");
+  }
+  const tip = $("tip");
+  const when = el("div", { class: "when", text: fmtDateTime(ts) });
+  if (state.gaps.some(([start, end]) => start <= ts && ts <= end)) {
+    tip.replaceChildren(el("strong", { text: "No data" }), when, el("div", { class: "when", text: "The monitor wasn't running." }));
+  } else {
+    const here = onlineAt(ts);
+    const list = el("ul");
+    for (const d of here.slice(0, 10)) {
+      list.append(el("li", { text: deviceName(d), ...(row && row.mac === d.mac ? { class: "hit" } : {}) }));
+    }
+    if (here.length > 10) list.append(el("li", { text: "and " + (here.length - 10) + " more" }));
+    tip.replaceChildren(el("strong", { text: plural(here.length, "device") + " online" }), when, list);
+  }
+  tip.style.display = "block";
+  const box = tip.getBoundingClientRect();
+  const left = clientX + 14 + box.width > innerWidth ? clientX - box.width - 14 : clientX + 14;
+  tip.style.left = Math.max(left, 4) + "px";
+  tip.style.top = Math.max(Math.min(clientY + 14, innerHeight - box.height - 8), 4) + "px";
+}
+
+function hideTip() {
+  cursorTime = null;
+  $("tip").style.display = "none";
+  for (const line of crosshairs) line.setAttribute("visibility", "hidden");
+}
+
+function render() {
+  if (!state) return;
+  crosshairs = [];
+  $("title").textContent = state.ssid ? "Devices on " + state.ssid : "Wi-Fi devices";
+  document.title = (state.online === null ? "" : state.online + " online · ") + "Wi-Fi Devices";
+  $("live").textContent = state.status.state === "ok" ? "Scanning every " + fmtDuration(state.interval).replace("under 1 min", state.interval + " sec") : "";
+  $("banner-text").textContent = state.status.message;
+  $("banner").classList.toggle("show", Boolean(state.status.message));
+  renderTiles();
+  renderCount();
+  renderTimeline();
+  renderDevices();
+  $("method").textContent = "A device counts as online until it has stayed silent for " +
+    fmtDuration(state.grace) + ". Devices are told apart by MAC address, so a phone that switches to a new " +
+    "private address appears as a new device. Data is collected only while this computer is on and connected to this network.";
+}
+
+async function load() {
+  const mine = ++seq;
+  try {
+    const response = await fetch("/api/state?hours=" + hours);
+    const data = await response.json();
+    if (mine !== seq) return;
+    state = data;
+    render();
+  } catch (error) {
+    if (mine !== seq) return;
+    $("banner-text").textContent = "Can't reach the monitor. It may have stopped.";
+    $("banner").classList.add("show");
+  }
+  $("content").classList.remove("loading");
+}
+
+for (const button of document.querySelectorAll(".filters button")) {
+  button.setAttribute("aria-pressed", String(Number(button.dataset.hours) === hours));
+  button.addEventListener("click", () => {
+    hours = Number(button.dataset.hours);
+    try { localStorage.setItem("hours", hours); } catch (e) {}
+    for (const other of document.querySelectorAll(".filters button")) {
+      other.setAttribute("aria-pressed", String(other === button));
+    }
+    $("content").classList.add("loading");
+    load();
+  });
+}
+
+new ResizeObserver(() => render()).observe($("count-chart"));
+load();
+setInterval(() => { if (cursorTime === null) load(); }, 15000);
+</script>
+</body>
+</html>
